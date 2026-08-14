@@ -9,15 +9,15 @@
         body { background-color: transparent; }
     </style>
 </head>
-<body class="overflow-hidden h-screen w-screen flex items-center justify-center m-0">
+<body class="overflow-auto h-screen w-screen flex items-center justify-center m-0 p-4">
 
     <!-- 主便箋視窗 -->
-    <div id="app-container" class="w-80 bg-[#FDF6C7] rounded-lg shadow-xl border border-[#E8D58B] flex flex-col p-3 relative transition-opacity duration-200" style="height: 450px; opacity: 0.9;">
+    <div id="app-container" class="w-80 max-w-full bg-[#FDF6C7] rounded-lg shadow-xl border border-[#E8D58B] flex flex-col p-3 relative transition-opacity duration-200 shrink-0" style="height: 450px; opacity: 0.9;">
         
         <!-- 頂部輸入區 -->
         <div class="flex gap-2 mb-2">
             <input type="text" id="content-input" placeholder="輸入待辦事項..." class="flex-1 px-2 py-1 text-sm border border-[#E8D58B] rounded bg-white/80 focus:outline-none focus:ring-1 focus:ring-amber-500">
-            <button id="add-btn" class="px-3 py-1 bg-[#E8D58B] hover:bg-[#d8c375] text-amber-900 text-sm font-medium rounded transition">新增代辦</button>
+            <button id="add-btn" class="px-3 py-1 bg-[#E8D58B] hover:bg-[#d8c375] text-amber-900 text-sm font-medium rounded transition shrink-0">新增代辦</button>
         </div>
 
         <!-- 事項清單區 -->
@@ -25,19 +25,19 @@
             <div class="text-center text-gray-400 text-xs mt-10">目前沒有待辦事項，請在上方新增！</div>
         </div>
 
-        <!-- 底部控制列（已移除置頂） -->
+        <!-- 底部控制列 -->
         <div class="flex items-center justify-between pt-2 mt-2 border-t border-[#E8D58B]/60 text-xs text-gray-700">
             <button id="del-btn" class="px-2 py-1 bg-amber-100 hover:bg-amber-200 rounded border border-amber-300 transition">刪除選定</button>
             <button id="simple-btn" class="px-2 py-1 bg-amber-100 hover:bg-amber-200 rounded border border-amber-300 transition">簡易畫面</button>
             <div class="flex items-center gap-1">
                 <span>透明度</span>
-                <input type="range" id="alpha-scale" min="0.3" max="1.0" step="0.05" value="0.9" class="w-20 accent-amber-600 cursor-pointer">
+                <input type="range" id="alpha-scale" min="0.3" max="1.0" step="0.05" value="0.9" class="w-16 accent-amber-600 cursor-pointer">
             </div>
         </div>
     </div>
 
     <!-- 簡易畫面 -->
-    <div id="simple-container" class="hidden fixed w-72 bg-[#FDF6C7] rounded-lg shadow-xl border border-[#E8D58B] p-3 cursor-move select-none" style="opacity: 0.9;">
+    <div id="simple-container" class="hidden w-72 max-w-full bg-[#FDF6C7] rounded-lg shadow-xl border border-[#E8D58B] p-3 select-none shrink-0" style="opacity: 0.9;">
         <div class="flex justify-between items-center mb-2 border-b border-[#E8D58B] pb-1">
             <span class="text-xs font-bold text-amber-900">📌 執行中事項</span>
             <button id="back-main-btn" class="text-xs px-2 py-0.5 bg-amber-200 hover:bg-amber-300 rounded">返回主畫面</button>
@@ -58,8 +58,8 @@
     </div>
 
     <!-- 設定提醒的彈出視窗 -->
-    <div id="reminder-modal" class="hidden fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-        <div class="bg-white rounded-lg p-4 w-72 shadow-xl border border-gray-200 flex flex-col gap-3">
+    <div id="reminder-modal" class="hidden fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-lg p-4 w-72 max-w-full shadow-xl border border-gray-200 flex flex-col gap-3">
             <h3 id="modal-title" class="text-sm font-bold text-gray-800">設定提醒項目</h3>
             <div id="modal-body" class="flex flex-col gap-2"></div>
             <div class="flex justify-end gap-2 mt-2">
@@ -93,13 +93,6 @@
         const modalBody = document.getElementById('modal-body');
         const modalCancel = document.getElementById('modal-cancel');
         const modalConfirm = document.getElementById('modal-confirm');
-
-        // 主動請求通知權限
-        if ("Notification" in window) {
-            if (Notification.permission !== "granted" && Notification.permission !== "denied") {
-                Notification.requestPermission();
-            }
-        }
 
         function loadData() {
             const saved = localStorage.getItem('sticky_notes_data');
@@ -298,8 +291,6 @@
             simpleTextContent.textContent = lines.join("\n");
             appContainer.classList.add('hidden');
             simpleContainer.classList.remove('hidden');
-            simpleContainer.style.top = `${window.innerHeight / 2 - 50}px`;
-            simpleContainer.style.left = `${window.innerWidth / 2 - 150}px`;
         });
 
         function switchToMain() {
@@ -312,20 +303,7 @@
             if (e.target === simpleContainer || e.target === simpleTextContent) { switchToMain(); }
         });
 
-        let isDragging = false, startX, startY;
-        simpleContainer.addEventListener('mousedown', (e) => {
-            isDragging = true;
-            startX = e.clientX - simpleContainer.offsetLeft;
-            startY = e.clientY - simpleContainer.offsetTop;
-        });
-        window.addEventListener('mousemove', (e) => {
-            if (!isDragging) return;
-            simpleContainer.style.left = `${e.clientX - startX}px`;
-            simpleContainer.style.top = `${e.clientY - startY}px`;
-        });
-        window.addEventListener('mouseup', () => { isDragging = false; });
-
-        // 背景鬧鐘時間檢查與通知發送
+        // 時間到時：自動切回主畫面並跳出強迫確認視窗
         setInterval(() => {
             const now = new Date();
             const nowDateStr = now.toISOString().split('T')[0];
@@ -349,25 +327,10 @@
 
                 if (trigger) {
                     saveData();
-                    if ("Notification" in window) {
-                        if (Notification.permission === "granted") {
-                            new Notification("⏰ 時間到！提醒您：", {
-                                body: t.content,
-                                icon: "https://cdn-icons-png.flaticon.com/512/3239/3239952.png",
-                                silent: true
-                            });
-                        } else if (Notification.permission !== "denied") {
-                            Notification.requestPermission().then(permission => {
-                                if (permission === "granted") {
-                                    new Notification("⏰ 時間到！提醒您：", {
-                                        body: t.content,
-                                        icon: "https://cdn-icons-png.flaticon.com/512/3239/3239952.png",
-                                        silent: true
-                                    });
-                                }
-                            });
-                        }
-                    }
+                    switchToMain();
+                    appContainer.style.opacity = "1.0";
+                    alphaScale.value = "1.0";
+                    alert(`⏰ 時間到！\n\n提醒您：${t.content}`);
                 }
             });
         }, 10000);
