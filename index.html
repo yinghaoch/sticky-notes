@@ -70,7 +70,7 @@
 
     <script>
         let tasks = [];
-        let selectedIndex = null;
+        let selectedIndices = new Set(); // 支援多選的索引集合
         let activeContextMenuTaskIndex = null;
 
         const appContainer = document.getElementById('app-container');
@@ -152,7 +152,8 @@
 
             tasks.forEach((t, idx) => {
                 const itemDiv = document.createElement('div');
-                itemDiv.className = `flex items-center justify-between p-2 rounded cursor-pointer transition select-none text-sm ${selectedIndex === idx ? 'bg-[#E8D58B]/50 border border-[#E8D58B]' : 'hover:bg-amber-100/50 bg-white/60'}`;
+                const isSelected = selectedIndices.has(idx);
+                itemDiv.className = `flex items-center justify-between p-2 rounded cursor-pointer transition select-none text-sm ${isSelected ? 'bg-[#E8D58B]/60 border border-[#E8D58B]' : 'hover:bg-amber-100/50 bg-white/60'}`;
                 
                 const statusText = getTaskStatusText(t);
                 const statusColorClass = getTaskStatusColorClass(t);
@@ -167,11 +168,32 @@
                     </div>
                 `;
 
-                itemDiv.addEventListener('click', () => { selectedIndex = idx; renderTasks(); });
-                // 移除了雙擊直接切換完成狀態的邏輯
+                // 點擊切換多選狀態
+                itemDiv.addEventListener('click', (e) => {
+                    if (e.ctrlKey || e.metaKey) {
+                        // 支援 Ctrl / Cmd 複選
+                        if (selectedIndices.has(idx)) {
+                            selectedIndices.delete(idx);
+                        } else {
+                            selectedIndices.add(idx);
+                        }
+                    } else {
+                        // 一般點擊直接切換該項目的選取狀態（也可以改為單選，這裡保留點擊切換）
+                        if (selectedIndices.has(idx)) {
+                            selectedIndices.delete(idx);
+                        } else {
+                            selectedIndices.add(idx);
+                        }
+                    }
+                    renderTasks();
+                });
+
                 itemDiv.addEventListener('contextmenu', (e) => {
                     e.preventDefault();
-                    selectedIndex = idx;
+                    if (!selectedIndices.has(idx)) {
+                        selectedIndices.clear();
+                        selectedIndices.add(idx);
+                    }
                     activeContextMenuTaskIndex = idx;
                     renderTasks();
                     contextMenu.style.left = `${e.pageX}px`;
@@ -205,9 +227,9 @@
         contentInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') addTask(); });
 
         delBtn.addEventListener('click', () => {
-            if (selectedIndex === null || selectedIndex >= tasks.length) { alert("請先點選想要刪除的事項！"); return; }
-            tasks.splice(selectedIndex, 1);
-            selectedIndex = null;
+            if (selectedIndices.size === 0) { alert("請先點選想要刪除的事項！"); return; }
+            tasks = tasks.filter((_, idx) => !selectedIndices.has(idx));
+            selectedIndices.clear();
             saveData();
             renderTasks();
         });
@@ -293,32 +315,34 @@
         function closeModal() { reminderModal.classList.add('hidden'); modalConfirm.onclick = null; }
         modalCancel.onclick = closeModal;
 
-        // 懸浮置頂 (子母畫面 PiP 模式)：只投射「選定」的單一項目[cite: 3]，並依字數動態調整畫面大小
+        // 懸浮置頂 (子母畫面 PiP 模式)：支援多選投射，並動態調整畫布尺寸
         floatBtn.addEventListener('click', async () => {
-            if (selectedIndex === null || selectedIndex >= tasks.length) {
-                alert("請先在清單中點選（選定）想要投影到子母畫面的項目！");
+            if (selectedIndices.size === 0) {
+                alert("請先在清單中點選（選定）想要投影到子母畫面的項目（可多選）！");
                 return;
             }
 
-            const t = tasks[selectedIndex];
+            const selectedTasks = Array.from(selectedIndices).sort((a, b) => a - b).map(idx => tasks[idx]);
+            
             const padding = 15;
             const titleHeight = 35;
-            const itemHeight = 28;
+            const itemHeight = 26;
             
             const tempCtx = canvas.getContext('2d');
             tempCtx.font = "12px sans-serif";
             
-            const checkStr = t.checked ? '[✓] ' : '[   ] ';
-            const statusText = t.checked ? '[已完成]' : '[未完成]';
-            const reminderStr = getReminderString(t);
-            const fullStr = checkStr + statusText + " " + t.content + (reminderStr ? " " + reminderStr : "");
-            
-            const metrics = tempCtx.measureText(fullStr);
-            let contentWidth = metrics.width;
-            if (contentWidth < 180) contentWidth = 180;
+            let maxWidth = 200;
+            selectedTasks.forEach(t => {
+                const checkStr = t.checked ? '[✓] ' : '[   ] ';
+                const statusText = t.checked ? '[已完成]' : '[未完成]';
+                const reminderStr = getReminderString(t);
+                const fullStr = checkStr + statusText + " " + t.content + (reminderStr ? " " + reminderStr : "");
+                const w = tempCtx.measureText(fullStr).width;
+                if (w > maxWidth) maxWidth = w;
+            });
 
-            canvas.width = Math.ceil(contentWidth + (padding * 2));
-            canvas.height = titleHeight + itemHeight + (padding * 2);
+            canvas.width = Math.ceil(maxWidth + (padding * 2));
+            canvas.height = titleHeight + (selectedTasks.length * itemHeight) + (padding * 2);
 
             function drawLoop() {
                 ctx.fillStyle = "#FDF6C7";
@@ -326,22 +350,31 @@
                 
                 ctx.fillStyle = "#451a03";
                 ctx.font = "bold 14px sans-serif";
-                ctx.fillText("📌 待辦事項便箋", padding, 25);
+                ctx.fillText("📌 待辦事項便箋 (多選)", padding, 25);
                 
                 ctx.font = "12px sans-serif";
-                const y = 55;
-                let currentX = padding;
+                selectedTasks.forEach((t, i) => {
+                    const y = 55 + (i * itemHeight);
+                    let currentX = padding;
 
-                ctx.fillStyle = "#451a03";
-                ctx.fillText(checkStr, currentX, y);
-                currentX += tempCtx.measureText(checkStr).width;
+                    const checkStr = t.checked ? '[✓] ' : '[   ] ';
+                    const statusText = t.checked ? '[已完成]' : '[未完成]';
+                    const reminderStr = getReminderString(t);
 
-                ctx.fillStyle = t.checked ? "#16a34a" : "#dc2626";
-                ctx.fillText(statusText, currentX, y);
-                currentX += tempCtx.measureText(statusText + " ").width;
+                    // 繪製勾選方塊
+                    ctx.fillStyle = "#451a03";
+                    ctx.fillText(checkStr, currentX, y);
+                    currentX += tempCtx.measureText(checkStr).width;
 
-                ctx.fillStyle = "#1f2937";
-                ctx.fillText(t.content + (reminderStr ? " " + reminderStr : ""), currentX, y);
+                    // 繪製狀態
+                    ctx.fillStyle = t.checked ? "#16a34a" : "#dc2626";
+                    ctx.fillText(statusText, currentX, y);
+                    currentX += tempCtx.measureText(statusText + " ").width;
+
+                    // 繪製內文與提醒
+                    ctx.fillStyle = "#1f2937";
+                    ctx.fillText(t.content + (reminderStr ? " " + reminderStr : ""), currentX, y);
+                });
 
                 requestAnimationFrame(drawLoop);
             }
