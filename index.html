@@ -1,19 +1,86 @@
-<script>
-        // 資料結構初始化
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>便箋</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background-color: transparent; }
+    </style>
+</head>
+<body class="overflow-hidden h-screen w-screen flex items-center justify-center m-0">
+
+    <!-- 主便箋視窗 -->
+    <div id="app-container" class="w-80 bg-[#FDF6C7] rounded-lg shadow-xl border border-[#E8D58B] flex flex-col p-3 relative transition-opacity duration-200" style="height: 450px; opacity: 0.9;">
+        
+        <!-- 頂部輸入區 -->
+        <div class="flex gap-2 mb-2">
+            <input type="text" id="content-input" placeholder="輸入待辦事項..." class="flex-1 px-2 py-1 text-sm border border-[#E8D58B] rounded bg-white/80 focus:outline-none focus:ring-1 focus:ring-amber-500">
+            <button id="add-btn" class="px-3 py-1 bg-[#E8D58B] hover:bg-[#d8c375] text-amber-900 text-sm font-medium rounded transition">新增代辦</button>
+        </div>
+
+        <!-- 事項清單區 -->
+        <div id="task-listbox" class="flex-1 bg-white/50 border border-[#E8D58B]/50 rounded p-2 overflow-y-auto flex flex-col gap-1">
+            <div class="text-center text-gray-400 text-xs mt-10">目前沒有待辦事項，請在上方新增！</div>
+        </div>
+
+        <!-- 底部控制列（已移除置頂） -->
+        <div class="flex items-center justify-between pt-2 mt-2 border-t border-[#E8D58B]/60 text-xs text-gray-700">
+            <button id="del-btn" class="px-2 py-1 bg-amber-100 hover:bg-amber-200 rounded border border-amber-300 transition">刪除選定</button>
+            <button id="simple-btn" class="px-2 py-1 bg-amber-100 hover:bg-amber-200 rounded border border-amber-300 transition">簡易畫面</button>
+            <div class="flex items-center gap-1">
+                <span>透明度</span>
+                <input type="range" id="alpha-scale" min="0.3" max="1.0" step="0.05" value="0.9" class="w-20 accent-amber-600 cursor-pointer">
+            </div>
+        </div>
+    </div>
+
+    <!-- 簡易畫面 -->
+    <div id="simple-container" class="hidden fixed w-72 bg-[#FDF6C7] rounded-lg shadow-xl border border-[#E8D58B] p-3 cursor-move select-none" style="opacity: 0.9;">
+        <div class="flex justify-between items-center mb-2 border-b border-[#E8D58B] pb-1">
+            <span class="text-xs font-bold text-amber-900">📌 執行中事項</span>
+            <button id="back-main-btn" class="text-xs px-2 py-0.5 bg-amber-200 hover:bg-amber-300 rounded">返回主畫面</button>
+        </div>
+        <div id="simple-text-content" class="text-sm text-gray-800 whitespace-pre-line max-h-60 overflow-y-auto"></div>
+    </div>
+
+    <!-- 右鍵選單：設定提醒 -->
+    <div id="custom-context-menu" class="hidden fixed bg-white border border-gray-300 shadow-md rounded py-1 z-50 text-xs w-36">
+        <div class="px-3 py-1.5 hover:bg-amber-100 cursor-pointer font-bold text-amber-800">⏰ 設定提醒</div>
+        <div class="border-t border-gray-200 my-1"></div>
+        <div class="px-3 py-1.5 hover:bg-blue-50 cursor-pointer" data-action="once">單次提醒</div>
+        <div class="px-3 py-1.5 hover:bg-blue-50 cursor-pointer" data-action="weekday">平日提醒 (週一至週五)</div>
+        <div class="px-3 py-1.5 hover:bg-blue-50 cursor-pointer" data-action="weekend">假日提醒 (週六、週日)</div>
+        <div class="px-3 py-1.5 hover:bg-blue-50 cursor-pointer" data-action="monthly">每月特定日期</div>
+        <div class="border-t border-gray-200 my-1"></div>
+        <div class="px-3 py-1.5 hover:bg-red-50 text-red-600 cursor-pointer" data-action="none">取消提醒</div>
+    </div>
+
+    <!-- 設定提醒的彈出視窗 -->
+    <div id="reminder-modal" class="hidden fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+        <div class="bg-white rounded-lg p-4 w-72 shadow-xl border border-gray-200 flex flex-col gap-3">
+            <h3 id="modal-title" class="text-sm font-bold text-gray-800">設定提醒項目</h3>
+            <div id="modal-body" class="flex flex-col gap-2"></div>
+            <div class="flex justify-end gap-2 mt-2">
+                <button id="modal-cancel" class="px-3 py-1 bg-gray-200 hover:bg-gray-300 text-gray-700 text-xs rounded">取消</button>
+                <button id="modal-confirm" class="px-3 py-1 bg-amber-500 hover:bg-amber-600 text-white text-xs rounded">確定</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
         let tasks = [];
         let alphaVal = 0.9;
-        let topmostVal = true;
         let selectedIndex = null;
         let activeContextMenuTaskIndex = null;
 
-        // DOM 元素
         const appContainer = document.getElementById('app-container');
         const contentInput = document.getElementById('content-input');
         const addBtn = document.getElementById('add-btn');
         const taskListbox = document.getElementById('task-listbox');
         const delBtn = document.getElementById('del-btn');
         const simpleBtn = document.getElementById('simple-btn');
-        const topmostCheck = document.getElementById('topmost-check');
         const alphaScale = document.getElementById('alpha-scale');
         
         const simpleContainer = document.getElementById('simple-container');
@@ -27,9 +94,11 @@
         const modalCancel = document.getElementById('modal-cancel');
         const modalConfirm = document.getElementById('modal-confirm');
 
-        // 初始化要求桌面通知權限
-        if ("Notification" in window && Notification.permission !== "granted") {
-            Notification.requestPermission();
+        // 主動請求通知權限
+        if ("Notification" in window) {
+            if (Notification.permission !== "granted" && Notification.permission !== "denied") {
+                Notification.requestPermission();
+            }
         }
 
         function loadData() {
@@ -39,19 +108,18 @@
                     const data = JSON.parse(saved);
                     tasks = data.tasks || [];
                     alphaVal = data.alpha !== undefined ? data.alpha : 0.9;
-                    topmostVal = data.topmost !== undefined ? data.topmost : true;
                 } catch (e) {
                     tasks = [];
                 }
             }
             alphaScale.value = alphaVal;
             appContainer.style.opacity = alphaVal;
-            topmostCheck.checked = topmostVal;
+            simpleContainer.style.opacity = alphaVal;
             renderTasks();
         }
 
         function saveData() {
-            const data = { tasks: tasks, alpha: alphaVal, topmost: topmostVal };
+            const data = { tasks: tasks, alpha: alphaVal };
             localStorage.setItem('sticky_notes_data', JSON.stringify(data));
         }
 
@@ -213,12 +281,6 @@
             saveData();
         });
 
-        topmostCheck.addEventListener('change', (e) => {
-            topmostVal = e.target.checked;
-            appContainer.style.zIndex = topmostVal ? "999" : "1";
-            saveData();
-        });
-
         simpleBtn.addEventListener('click', () => {
             const checkedTasks = tasks.filter(t => t.checked);
             if (checkedTasks.length === 0) { alert("請先在清單項目上雙擊打勾 [✓] 要顯示在簡易畫面的事項！"); return; }
@@ -263,7 +325,7 @@
         });
         window.addEventListener('mouseup', () => { isDragging = false; });
 
-        // 背景鬧鐘時間檢查（純靜音桌面通知）
+        // 背景鬧鐘時間檢查與通知發送
         setInterval(() => {
             const now = new Date();
             const nowDateStr = now.toISOString().split('T')[0];
@@ -287,14 +349,24 @@
 
                 if (trigger) {
                     saveData();
-                    
-                    // 發送靜音的 Windows 桌面右下角原生通知
-                    if ("Notification" in window && Notification.permission === "granted") {
-                        new Notification("⏰ 時間到！提醒您：", {
-                            body: t.content,
-                            icon: "https://cdn-icons-png.flaticon.com/512/3239/3239952.png",
-                            silent: true // 確保完全靜音
-                        });
+                    if ("Notification" in window) {
+                        if (Notification.permission === "granted") {
+                            new Notification("⏰ 時間到！提醒您：", {
+                                body: t.content,
+                                icon: "https://cdn-icons-png.flaticon.com/512/3239/3239952.png",
+                                silent: true
+                            });
+                        } else if (Notification.permission !== "denied") {
+                            Notification.requestPermission().then(permission => {
+                                if (permission === "granted") {
+                                    new Notification("⏰ 時間到！提醒您：", {
+                                        body: t.content,
+                                        icon: "https://cdn-icons-png.flaticon.com/512/3239/3239952.png",
+                                        silent: true
+                                    });
+                                }
+                            });
+                        }
                     }
                 }
             });
@@ -302,3 +374,5 @@
 
         loadData();
     </script>
+</body>
+</html>
