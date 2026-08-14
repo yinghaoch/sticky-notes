@@ -165,7 +165,7 @@
 
                 itemDiv.innerHTML = `
                     <div class="flex items-center gap-2 overflow-hidden flex-1 mr-2">
-                        <span class="font-mono font-bold">${t.checked ? '[✓]' : '[   ]'}</span>
+                        <span class="font-mono font-bold">${t.checked ? '[✓]' : '[    ]'}</span>
                         <span class="truncate ${t.checked ? 'line-through text-gray-400' : 'text-gray-800'}">${escapeHtml(t.content)}${tagStr}</span>
                     </div>
                     <button type="button" class="reminder-trigger-btn px-1.5 py-0.5 text-xs bg-amber-200 hover:bg-amber-300 rounded border border-amber-300 shrink-0" title="設定提醒">⏰</button>
@@ -228,7 +228,6 @@
             renderTasks();
         });
 
-        // 點擊其他地方關閉右鍵選單
         window.addEventListener('click', (e) => {
             if (!e.target.closest('.reminder-trigger-btn') && !e.target.closest('#custom-context-menu')) {
                 contextMenu.classList.add('hidden');
@@ -342,7 +341,6 @@
             if (e.target === simpleContainer || e.target === simpleTextContent) { switchToMain(); }
         });
 
-        // 懸浮置頂 (子母畫面模式)
         floatBtn.addEventListener('click', async () => {
             canvas.width = 320;
             canvas.height = 450;
@@ -355,7 +353,7 @@
                 
                 ctx.fillText("📌 待辦事項便箋", 15, 30);
                 tasks.forEach((t, i) => {
-                    const checkStr = t.checked ? '[✓] ' : '[   ] ';
+                    const checkStr = t.checked ? '[✓] ' : '[    ] ';
                     ctx.fillText(checkStr + t.content, 15, 65 + (i * 25));
                 });
                 requestAnimationFrame(drawLoop);
@@ -369,6 +367,45 @@
                 await video.requestPictureInPicture();
             }
         });
+
+        // --- 核心背景提醒與通知邏輯 ---
+        function checkReminders() {
+            const now = new Date();
+            const currentDay = now.getDay(); // 0:週日, 1:週一...
+            const currentDate = now.getDate();
+            const currentTimeStr = String(now.getHours()).padStart(2, '0') + ":" + String(now.getMinutes()).padStart(2, '0');
+
+            tasks.forEach(task => {
+                if (task.checked) return; // 已完成的不提醒
+
+                let shouldNotify = false;
+
+                if (task.time === currentTimeStr) {
+                    if (task.reminder_type === "once" && task.date === now.toISOString().split('T')[0]) {
+                        shouldNotify = true;
+                    } else if (task.reminder_type === "weekday" && currentDay >= 1 && currentDay <= 5) {
+                        shouldNotify = true;
+                    } else if (task.reminder_type === "weekend" && (currentDay === 0 || currentDay === 6)) {
+                        shouldNotify = true;
+                    } else if (task.reminder_type === "monthly" && task.days_of_month && task.days_of_month.includes(currentDate)) {
+                        shouldNotify = true;
+                    }
+                }
+
+                if (shouldNotify && !task.notified) {
+                    if (Notification.permission === "granted") {
+                        new Notification("便箋提醒", { body: task.content });
+                    }
+                    task.notified = true;
+                    saveData();
+                } else if (task.time !== currentTimeStr) {
+                    task.notified = false;
+                }
+            });
+        }
+
+        // 每 30 秒執行一次背景檢查
+        setInterval(checkReminders, 30000);
 
         loadData();
     </script>
