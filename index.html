@@ -5,347 +5,90 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>便箋</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="manifest" href="./manifest.json">
     <style>
-        body { background-color: transparent; }
+        body { background-color: #f3f4f6; }
+        #app-container { transition: opacity 0.2s; }
     </style>
 </head>
-<body class="overflow-auto h-screen w-screen flex items-center justify-center m-0 p-4">
+<body class="p-4">
 
-    <!-- 主便箋視窗 -->
-    <div id="app-container" class="w-80 max-w-full bg-[#FDF6C7] rounded-lg shadow-xl border border-[#E8D58B] flex flex-col p-3 relative transition-opacity duration-200 shrink-0" style="height: 450px; opacity: 0.9;">
-        
-        <!-- 頂部輸入區 -->
+    <!-- 實際渲染的區域 -->
+    <div id="render-area" class="w-80 bg-[#FDF6C7] rounded-lg shadow-xl border border-[#E8D58B] p-4">
         <div class="flex gap-2 mb-2">
-            <input type="text" id="content-input" placeholder="輸入待辦事項..." class="flex-1 px-2 py-1 text-sm border border-[#E8D58B] rounded bg-white/80 focus:outline-none focus:ring-1 focus:ring-amber-500">
-            <button id="add-btn" class="px-3 py-1 bg-[#E8D58B] hover:bg-[#d8c375] text-amber-900 text-sm font-medium rounded transition shrink-0">新增代辦</button>
+            <input type="text" id="content-input" placeholder="輸入待辦事項..." class="flex-1 px-2 py-1 text-sm border border-[#E8D58B] rounded bg-white/80 focus:outline-none">
+            <button id="add-btn" class="px-3 py-1 bg-[#E8D58B] text-amber-900 text-sm font-medium rounded">新增</button>
         </div>
 
-        <!-- 事項清單區 -->
-        <div id="task-listbox" class="flex-1 bg-white/50 border border-[#E8D58B]/50 rounded p-2 overflow-y-auto flex flex-col gap-1">
-            <div class="text-center text-gray-400 text-xs mt-10">目前沒有待辦事項，請在上方新增！</div>
+        <div id="task-listbox" class="h-64 bg-white/50 border border-[#E8D58B]/50 rounded p-2 overflow-y-auto text-sm">
+            <!-- 事項列表 -->
         </div>
 
-        <!-- 底部控制列 -->
-        <div class="flex items-center justify-between pt-2 mt-2 border-t border-[#E8D58B]/60 text-xs text-gray-700">
-            <button id="del-btn" class="px-2 py-1 bg-amber-100 hover:bg-amber-200 rounded border border-amber-300 transition">刪除選定</button>
-            <button id="simple-btn" class="px-2 py-1 bg-amber-100 hover:bg-amber-200 rounded border border-amber-300 transition">簡易畫面</button>
-            <div class="flex items-center gap-1">
-                <span>透明度</span>
-                <input type="range" id="alpha-scale" min="0.3" max="1.0" step="0.05" value="0.9" class="w-16 accent-amber-600 cursor-pointer">
-            </div>
-        </div>
+        <button id="float-btn" class="w-full mt-3 py-2 bg-blue-500 hover:bg-blue-600 text-white text-xs font-bold rounded shadow-lg">
+            📌 強制置頂 (子母畫面模式)
+        </button>
     </div>
 
-    <!-- 簡易畫面 -->
-    <div id="simple-container" class="hidden w-72 max-w-full bg-[#FDF6C7] rounded-lg shadow-xl border border-[#E8D58B] p-3 select-none shrink-0" style="opacity: 0.9;">
-        <div class="flex justify-between items-center mb-2 border-b border-[#E8D58B] pb-1">
-            <span class="text-xs font-bold text-amber-900">📌 執行中事項</span>
-            <button id="back-main-btn" class="text-xs px-2 py-0.5 bg-amber-200 hover:bg-amber-300 rounded">返回主畫面</button>
-        </div>
-        <div id="simple-text-content" class="text-sm text-gray-800 whitespace-pre-line max-h-60 overflow-y-auto"></div>
-    </div>
-
-    <!-- 右鍵選單：設定提醒 -->
-    <div id="custom-context-menu" class="hidden fixed bg-white border border-gray-300 shadow-md rounded py-1 z-50 text-xs w-36">
-        <div class="px-3 py-1.5 hover:bg-amber-100 cursor-pointer font-bold text-amber-800">⏰ 設定提醒</div>
-        <div class="border-t border-gray-200 my-1"></div>
-        <div class="px-3 py-1.5 hover:bg-blue-50 cursor-pointer" data-action="once">單次提醒</div>
-        <div class="px-3 py-1.5 hover:bg-blue-50 cursor-pointer" data-action="weekday">平日提醒 (週一至週五)</div>
-        <div class="px-3 py-1.5 hover:bg-blue-50 cursor-pointer" data-action="weekend">假日提醒 (週六、週日)</div>
-        <div class="px-3 py-1.5 hover:bg-blue-50 cursor-pointer" data-action="monthly">每月特定日期</div>
-        <div class="border-t border-gray-200 my-1"></div>
-        <div class="px-3 py-1.5 hover:bg-red-50 text-red-600 cursor-pointer" data-action="none">取消提醒</div>
-    </div>
-
-    <!-- 設定提醒的彈出視窗 -->
-    <div id="reminder-modal" class="hidden fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-        <div class="bg-white rounded-lg p-4 w-72 max-w-full shadow-xl border border-gray-200 flex flex-col gap-3">
-            <h3 id="modal-title" class="text-sm font-bold text-gray-800">設定提醒項目</h3>
-            <div id="modal-body" class="flex flex-col gap-2"></div>
-            <div class="flex justify-end gap-2 mt-2">
-                <button id="modal-cancel" class="px-3 py-1 bg-gray-200 hover:bg-gray-300 text-gray-700 text-xs rounded">取消</button>
-                <button id="modal-confirm" class="px-3 py-1 bg-amber-500 hover:bg-amber-600 text-white text-xs rounded">確定</button>
-            </div>
-        </div>
-    </div>
+    <!-- 用於生成置頂畫面的隱藏元素 -->
+    <video id="video-stream" class="hidden" muted autoplay playsinline></video>
+    <canvas id="canvas" class="hidden"></canvas>
 
     <script>
         let tasks = [];
-        let alphaVal = 0.9;
-        let selectedIndex = null;
-        let activeContextMenuTaskIndex = null;
-
-        const appContainer = document.getElementById('app-container');
         const contentInput = document.getElementById('content-input');
         const addBtn = document.getElementById('add-btn');
         const taskListbox = document.getElementById('task-listbox');
-        const delBtn = document.getElementById('del-btn');
-        const simpleBtn = document.getElementById('simple-btn');
-        const alphaScale = document.getElementById('alpha-scale');
-        
-        const simpleContainer = document.getElementById('simple-container');
-        const simpleTextContent = document.getElementById('simple-text-content');
-        const backMainBtn = document.getElementById('back-main-btn');
+        const floatBtn = document.getElementById('float-btn');
+        const video = document.getElementById('video-stream');
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const renderArea = document.getElementById('render-area');
 
-        const contextMenu = document.getElementById('custom-context-menu');
-        const reminderModal = document.getElementById('reminder-modal');
-        const modalTitle = document.getElementById('modal-title');
-        const modalBody = document.getElementById('modal-body');
-        const modalCancel = document.getElementById('modal-cancel');
-        const modalConfirm = document.getElementById('modal-confirm');
-
-        if ("Notification" in window && Notification.permission !== "granted") {
-            Notification.requestPermission();
-        }
-
-        function loadData() {
-            const saved = localStorage.getItem('sticky_notes_data');
-            if (saved) {
-                try {
-                    const data = JSON.parse(saved);
-                    tasks = data.tasks || [];
-                    alphaVal = data.alpha !== undefined ? data.alpha : 0.9;
-                } catch (e) {
-                    tasks = [];
-                }
-            }
-            alphaScale.value = alphaVal;
-            appContainer.style.opacity = alphaVal;
-            simpleContainer.style.opacity = alphaVal;
-            renderTasks();
-        }
-
-        function saveData() {
-            const data = { tasks: tasks, alpha: alphaVal };
-            localStorage.setItem('sticky_notes_data', JSON.stringify(data));
-        }
-
-        function formatTimeInput(rawStr) {
-            let val = rawStr.trim();
-            if (!val.includes(":") && val.length === 4 && /^\d{4}$/.test(val)) {
-                val = val.substring(0, 2) + ":" + val.substring(2);
-            }
-            return val;
-        }
-
+        // 渲染列表內容
         function renderTasks() {
-            taskListbox.innerHTML = "";
-            if (tasks.length === 0) {
-                taskListbox.innerHTML = `<div class="text-center text-gray-400 text-xs mt-10">目前沒有待辦事項，請在上方新增！</div>`;
-                return;
-            }
-
+            taskListbox.innerHTML = tasks.length === 0 ? '<div class="text-gray-400 text-center mt-10">無事項</div>' : '';
             tasks.forEach((t, idx) => {
-                const itemDiv = document.createElement('div');
-                itemDiv.className = `flex items-center justify-between p-2 rounded cursor-pointer transition select-none text-sm ${selectedIndex === idx ? 'bg-[#E8D58B]/50 border border-[#E8D58B]' : 'hover:bg-amber-100/50 bg-white/60'}`;
-                
-                let tagStr = "";
-                const rType = t.reminder_type || "none";
-                if (rType === "once") tagStr = ` <span class="text-xs text-amber-700">(單次 ${t.date} ${t.time})</span>`;
-                else if (rType === "weekday") tagStr = ` <span class="text-xs text-blue-700">(平日 ${t.time})</span>`;
-                else if (rType === "weekend") tagStr = ` <span class="text-xs text-purple-700">(假日 ${t.time})</span>`;
-                else if (rType === "monthly") {
-                    const daysStr = (t.days_of_month || []).join(",");
-                    tagStr = ` <span class="text-xs text-green-700">(每月 ${daysStr}日 ${t.time})</span>`;
-                }
+                const div = document.createElement('div');
+                div.className = "p-1 border-b border-amber-200/50";
+                div.textContent = (t.checked ? '[✓] ' : '[ ] ') + t.text;
+                div.onclick = () => { t.checked = !t.checked; renderTasks(); };
+                taskListbox.appendChild(div);
+            });
+        }
 
-                itemDiv.innerHTML = `
-                    <div class="flex items-center gap-2 overflow-hidden flex-1">
-                        <span class="font-mono font-bold">${t.checked ? '[✓]' : '[   ]'}</span>
-                        <span class="truncate ${t.checked ? 'line-through text-gray-400' : 'text-gray-800'}">${escapeHtml(t.content)}${tagStr}</span>
-                    </div>
-                `;
+        addBtn.onclick = () => {
+            if (contentInput.value) {
+                tasks.push({ text: contentInput.value, checked: false });
+                contentInput.value = '';
+                renderTasks();
+            }
+        };
 
-                itemDiv.addEventListener('click', () => { selectedIndex = idx; renderTasks(); });
-                itemDiv.addEventListener('dblclick', () => { t.checked = !t.checked; saveData(); renderTasks(); });
-                itemDiv.addEventListener('contextmenu', (e) => {
-                    e.preventDefault();
-                    selectedIndex = idx;
-                    activeContextMenuTaskIndex = idx;
-                    renderTasks();
-                    contextMenu.style.left = `${e.pageX}px`;
-                    contextMenu.style.top = `${e.pageY}px`;
-                    contextMenu.classList.remove('hidden');
+        // 強制置頂邏輯：將 DOM 轉為影片串流
+        floatBtn.onclick = async () => {
+            canvas.width = renderArea.offsetWidth;
+            canvas.height = renderArea.offsetHeight;
+
+            // 簡單將 HTML 轉繪到 Canvas
+            function updateCanvas() {
+                ctx.fillStyle = "#FDF6C7";
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = "#451a03";
+                ctx.font = "14px Arial";
+                tasks.forEach((t, i) => {
+                    ctx.fillText((t.checked ? '✓ ' : '☐ ') + t.text, 10, 30 + (i * 20));
                 });
-
-                taskListbox.appendChild(itemDiv);
-            });
-        }
-
-        function escapeHtml(str) {
-            return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-        }
-
-        function addTask() {
-            const content = contentInput.value.trim();
-            if (!content) { alert("請輸入代辦事項內容！"); return; }
-
-            const now = new Date();
-            const timeStr = String(now.getHours()).padStart(2, '0') + ":" + String(now.getMinutes()).padStart(2, '0');
-            const dateStr = now.toISOString().split('T')[0];
-
-            tasks.push({ checked: false, content: content, reminder_type: "none", time: timeStr, date: dateStr, days_of_month: [], notified: false });
-            contentInput.value = "";
-            saveData();
-            renderTasks();
-        }
-
-        addBtn.addEventListener('click', addTask);
-        contentInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') addTask(); });
-
-        delBtn.addEventListener('click', () => {
-            if (selectedIndex === null || selectedIndex >= tasks.length) { alert("請先點選想要刪除的事項！"); return; }
-            tasks.splice(selectedIndex, 1);
-            selectedIndex = null;
-            saveData();
-            renderTasks();
-        });
-
-        window.addEventListener('click', () => { contextMenu.classList.add('hidden'); });
-
-        contextMenu.querySelectorAll('[data-action]').forEach(el => {
-            el.addEventListener('click', (e) => {
-                const action = e.target.getAttribute('data-action');
-                if (activeContextMenuTaskIndex !== null) { handleReminderConfig(activeContextMenuTaskIndex, action); }
-            });
-        });
-
-        function handleReminderConfig(idx, rType) {
-            const task = tasks[idx];
-            if (rType === 'none') {
-                task.reminder_type = "none";
-                task.notified = false;
-                saveData();
-                renderTasks();
-                return;
+                requestAnimationFrame(updateCanvas);
             }
+            updateCanvas();
 
-            modalTitle.textContent = "設定提醒項目";
-            modalBody.innerHTML = "";
-            let htmlContent = "";
-
-            if (rType === 'once') {
-                htmlContent = `
-                    <div><label class="block text-xs text-gray-600 mb-1">選擇日期 (YYYY-MM-DD)</label><input type="date" id="remind-date" value="${task.date || new Date().toISOString().split('T')[0]}" class="w-full border rounded px-2 py-1 text-sm"></div>
-                    <div><label class="block text-xs text-gray-600 mb-1">提醒時間 (HH:MM 或 0900)</label><input type="text" id="remind-time" value="${task.time || '09:00'}" class="w-full border rounded px-2 py-1 text-sm"></div>
-                `;
-            } else if (rType === 'weekday' || rType === 'weekend') {
-                htmlContent = `<div><label class="block text-xs text-gray-600 mb-1">每日提醒時間 (HH:MM 或 0900)</label><input type="text" id="remind-time" value="${task.time || '09:00'}" class="w-full border rounded px-2 py-1 text-sm"></div>`;
-            } else if (rType === 'monthly') {
-                const defaultDays = (task.days_of_month || [1, 15]).join(",");
-                htmlContent = `
-                    <div><label class="block text-xs text-gray-600 mb-1">每月特定日期（逗號分隔，例如：1,15,25）</label><input type="text" id="remind-days" value="${defaultDays}" class="w-full border rounded px-2 py-1 text-sm"></div>
-                    <div><label class="block text-xs text-gray-600 mb-1">提醒時間 (HH:MM 或 0900)</label><input type="text" id="remind-time" value="${task.time || '09:00'}" class="w-full border rounded px-2 py-1 text-sm"></div>
-                `;
+            const stream = canvas.captureStream();
+            video.srcObject = stream;
+            await video.play();
+            
+            if (video !== document.pictureInPictureElement) {
+                await video.requestPictureInPicture();
             }
-
-            modalBody.innerHTML = htmlContent;
-            reminderModal.classList.remove('hidden');
-
-            modalConfirm.onclick = () => {
-                const timeRaw = document.getElementById('remind-time') ? document.getElementById('remind-time').value : "";
-                const timeAns = formatTimeInput(timeRaw);
-                
-                if (timeRaw && !/^\d{2}:\d{2}$/.test(timeAns)) {
-                    alert("時間格式不正確！請輸入正確的格式 (例如 09:00 或 0900)");
-                    return;
-                }
-
-                task.reminder_type = rType;
-                if (timeAns) task.time = timeAns;
-                task.notified = false;
-
-                if (rType === 'once') {
-                    task.date = document.getElementById('remind-date').value;
-                } else if (rType === 'monthly') {
-                    const daysStr = document.getElementById('remind-days').value;
-                    task.days_of_month = daysStr.split(',').map(d => parseInt(d.trim())).filter(d => !isNaN(d));
-                }
-
-                saveData();
-                renderTasks();
-                closeModal();
-            };
-        }
-
-        function closeModal() { reminderModal.classList.add('hidden'); modalConfirm.onclick = null; }
-        modalCancel.onclick = closeModal;
-
-        alphaScale.addEventListener('input', (e) => {
-            alphaVal = parseFloat(e.target.value);
-            appContainer.style.opacity = alphaVal;
-            simpleContainer.style.opacity = alphaVal;
-            saveData();
-        });
-
-        simpleBtn.addEventListener('click', () => {
-            const checkedTasks = tasks.filter(t => t.checked);
-            if (checkedTasks.length === 0) { alert("請先在清單項目上雙擊打勾 [✓] 要顯示在簡易畫面的事項！"); return; }
-
-            const lines = checkedTasks.map(t => {
-                let tagStr = "";
-                const rType = t.reminder_type || "none";
-                if (rType === "once") tagStr = ` (${t.date} ${t.time})`;
-                else if (rType === "weekday") tagStr = ` (平日 ${t.time})`;
-                else if (rType === "weekend") tagStr = ` (假日 ${t.time})`;
-                else if (rType === "monthly") tagStr = ` (每月 ${(t.days_of_month||[]).join(",")}日 ${t.time})`;
-                return `• ${t.content}${tagStr}`;
-            });
-
-            simpleTextContent.textContent = lines.join("\n");
-            appContainer.classList.add('hidden');
-            simpleContainer.classList.remove('hidden');
-        });
-
-        function switchToMain() {
-            simpleContainer.classList.add('hidden');
-            appContainer.classList.remove('hidden');
-        }
-
-        backMainBtn.addEventListener('click', switchToMain);
-        simpleContainer.addEventListener('dblclick', (e) => {
-            if (e.target === simpleContainer || e.target === simpleTextContent) { switchToMain(); }
-        });
-
-        setInterval(() => {
-            const now = new Date();
-            const nowDateStr = now.toISOString().split('T')[0];
-            const nowTimeStr = String(now.getHours()).padStart(2, '0') + ":" + String(now.getMinutes()).padStart(2, '0');
-            const currentDay = now.getDate();
-
-            tasks.forEach(t => {
-                const rType = t.reminder_type || "none";
-                if (rType === "none") return;
-
-                let trigger = false;
-                if (rType === "once" && !t.notified) {
-                    if (t.date === nowDateStr && t.time === nowTimeStr) { trigger = true; t.notified = true; }
-                } else if (rType === "weekday" && now.getDay() >= 1 && now.getDay() <= 5) {
-                    if (t.time === nowTimeStr) trigger = true;
-                } else if (rType === "weekend" && (now.getDay() === 0 || now.getDay() === 6)) {
-                    if (t.time === nowTimeStr) trigger = true;
-                } else if (rType === "monthly") {
-                    if ((t.days_of_month || []).includes(currentDay) && t.time === nowTimeStr) { trigger = true; }
-                }
-
-                if (trigger) {
-                    saveData();
-                    switchToMain();
-                    appContainer.style.opacity = "1.0";
-                    alphaScale.value = "1.0";
-
-                    if ("Notification" in window && Notification.permission === "granted") {
-                        new Notification("⏰ 待辦事項提醒", {
-                            body: t.content,
-                            icon: "https://cdn-icons-png.flaticon.com/512/3209/3209265.png"
-                        });
-                    }
-                }
-            });
-        }, 10000);
-
-        loadData();
+        };
     </script>
 </body>
 </html>
