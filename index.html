@@ -5,6 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>便箋</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="manifest" href="data:application/manifest+json;charset=utf-8,{
+      %22name%22: %22便箋%22,
+      %22short_name%22: %22便箋%22,
+      %22start_url%22: %22./%22,
+      %22display%22: %22standalone%22,
+      %22background_color%22: %22%23ffffff%22,
+      %22theme_color%22: %22%23E8D58B%22
+    }">
     <style>
         body { background-color: transparent; }
     </style>
@@ -317,7 +325,7 @@
                 let trigger = false;
                 if (rType === "once" && !t.notified) {
                     if (t.date === nowDateStr && t.time === nowTimeStr) { trigger = true; t.notified = true; }
-                } else if (rType === "weekday" && now.getDay() >= 1 && now.getDay() <= 5) {
+                } else if (rType === "weekday" && now.getDay() >= 1 && now.getDay() >= 1 && now.getDay() <= 5) {
                     if (t.time === nowTimeStr) trigger = true;
                 } else if (rType === "weekend" && (now.getDay() === 0 || now.getDay() === 6)) {
                     if (t.time === nowTimeStr) trigger = true;
