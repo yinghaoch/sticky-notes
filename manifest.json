@@ -1,0 +1,8 @@
+{
+  "name": "便箋",
+  "short_name": "便箋",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#E8D58B"
+}
