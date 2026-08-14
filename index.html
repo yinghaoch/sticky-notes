@@ -52,7 +52,7 @@
 
     <!-- 右鍵選單：設定提醒 -->
     <div id="custom-context-menu" class="hidden fixed bg-white border border-gray-300 shadow-md rounded py-1 z-50 text-xs w-36">
-        <div class="px-3 py-1.5 hover:bg-amber-100 cursor-pointer font-bold text-amber-800">⏰ 設定提醒</div>
+        <div class="px-3 py-1.5 font-bold text-amber-800 bg-amber-50">⏰ 設定提醒</div>
         <div class="border-t border-gray-200 my-1"></div>
         <div class="px-3 py-1.5 hover:bg-blue-50 cursor-pointer" data-action="once">單次提醒</div>
         <div class="px-3 py-1.5 hover:bg-blue-50 cursor-pointer" data-action="weekday">平日提醒 (週一至週五)</div>
@@ -168,28 +168,20 @@
                         <span class="font-mono font-bold">${t.checked ? '[✓]' : '[   ]'}</span>
                         <span class="truncate ${t.checked ? 'line-through text-gray-400' : 'text-gray-800'}">${escapeHtml(t.content)}${tagStr}</span>
                     </div>
-                    <button class="reminder-trigger-btn px-1.5 py-0.5 text-xs bg-amber-200 hover:bg-amber-300 rounded border border-amber-300 shrink-0" title="設定提醒">⏰</button>
+                    <button type="button" class="reminder-trigger-btn px-1.5 py-0.5 text-xs bg-amber-200 hover:bg-amber-300 rounded border border-amber-300 shrink-0" title="設定提醒">⏰</button>
                 `;
 
                 itemDiv.addEventListener('click', (e) => {
-                    if (e.target.classList.contains('reminder-trigger-btn')) return;
+                    if (e.target.closest('.reminder-trigger-btn')) return;
                     selectedIndex = idx; 
                     renderTasks(); 
                 });
+
                 itemDiv.addEventListener('dblclick', (e) => {
-                    if (e.target.classList.contains('reminder-trigger-btn')) return;
+                    if (e.target.closest('.reminder-trigger-btn')) return;
                     t.checked = !t.checked; 
                     saveData(); 
                     renderTasks(); 
-                });
-                itemDiv.addEventListener('contextmenu', (e) => {
-                    e.preventDefault();
-                    selectedIndex = idx;
-                    activeContextMenuTaskIndex = idx;
-                    renderTasks();
-                    contextMenu.style.left = `${e.pageX}px`;
-                    contextMenu.style.top = `${e.pageY}px`;
-                    contextMenu.classList.remove('hidden');
                 });
 
                 const remindBtn = itemDiv.querySelector('.reminder-trigger-btn');
@@ -197,7 +189,6 @@
                     e.stopPropagation();
                     selectedIndex = idx;
                     activeContextMenuTaskIndex = idx;
-                    renderTasks();
                     const rect = remindBtn.getBoundingClientRect();
                     contextMenu.style.left = `${rect.left}px`;
                     contextMenu.style.top = `${rect.bottom + 4}px`;
@@ -237,12 +228,20 @@
             renderTasks();
         });
 
-        window.addEventListener('click', () => { contextMenu.classList.add('hidden'); });
+        // 點擊其他地方關閉右鍵選單
+        window.addEventListener('click', (e) => {
+            if (!e.target.closest('.reminder-trigger-btn') && !e.target.closest('#custom-context-menu')) {
+                contextMenu.classList.add('hidden');
+            }
+        });
 
         contextMenu.querySelectorAll('[data-action]').forEach(el => {
             el.addEventListener('click', (e) => {
                 const action = e.target.getAttribute('data-action');
-                if (activeContextMenuTaskIndex !== null) { handleReminderConfig(activeContextMenuTaskIndex, action); }
+                contextMenu.classList.add('hidden');
+                if (activeContextMenuTaskIndex !== null) { 
+                    handleReminderConfig(activeContextMenuTaskIndex, action); 
+                }
             });
         });
 
@@ -279,7 +278,7 @@
             reminderModal.classList.remove('hidden');
 
             modalConfirm.onclick = () => {
-                const timeRaw = document.getElementById('remind-time') ? document.getElementById('remind-time'].value : "";
+                const timeRaw = document.getElementById('remind-time') ? document.getElementById('remind-time').value : "";
                 const timeAns = formatTimeInput(timeRaw);
                 
                 if (timeRaw && !/^\d{2}:\d{2}$/.test(timeAns)) {
@@ -370,43 +369,6 @@
                 await video.requestPictureInPicture();
             }
         });
-
-        setInterval(() => {
-            const now = new Date();
-            const nowDateStr = now.toISOString().split('T')[0];
-            const nowTimeStr = String(now.getHours()).padStart(2, '0') + ":" + String(now.getMinutes()).padStart(2, '0');
-            const currentDay = now.getDate();
-
-            tasks.forEach(t => {
-                const rType = t.reminder_type || "none";
-                if (rType === "none") return;
-
-                let trigger = false;
-                if (rType === "once" && !t.notified) {
-                    if (t.date === nowDateStr && t.time === nowTimeStr) { trigger = true; t.notified = true; }
-                } else if (rType === "weekday" && now.getDay() >= 1 && now.getDay() <= 5) {
-                    if (t.time === nowTimeStr) trigger = true;
-                } else if (rType === "weekend" && (now.getDay() === 0 || now.getDay() === 6)) {
-                    if (t.time === nowTimeStr) trigger = true;
-                } else if (rType === "monthly") {
-                    if ((t.days_of_month || []).includes(currentDay) && t.time === nowTimeStr) { trigger = true; }
-                }
-
-                if (trigger) {
-                    saveData();
-                    switchToMain();
-                    appContainer.style.opacity = "1.0";
-                    alphaScale.value = "1.0";
-
-                    if ("Notification" in window && Notification.permission === "granted") {
-                        new Notification("⏰ 待辦事項提醒", {
-                            body: t.content,
-                            icon: "https://cdn-icons-png.flaticon.com/512/3209/3209265.png"
-                        });
-                    }
-                }
-            });
-        }, 10000);
 
         loadData();
     </script>
