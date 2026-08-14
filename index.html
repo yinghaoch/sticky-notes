@@ -5,14 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>便箋</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="manifest" href="data:application/manifest+json;charset=utf-8,{
-      %22name%22: %22便箋%22,
-      %22short_name%22: %22便箋%22,
-      %22start_url%22: %22./%22,
-      %22display%22: %22standalone%22,
-      %22background_color%22: %22%23ffffff%22,
-      %22theme_color%22: %22%23E8D58B%22
-    }">
+    <link rel="manifest" href="./manifest.json">
     <style>
         body { background-color: transparent; }
     </style>
@@ -102,7 +95,6 @@
         const modalCancel = document.getElementById('modal-cancel');
         const modalConfirm = document.getElementById('modal-confirm');
 
-        // 初始化時自動請求 Windows 系統通知權限
         if ("Notification" in window && Notification.permission !== "granted") {
             Notification.requestPermission();
         }
@@ -316,7 +308,6 @@
             if (e.target === simpleContainer || e.target === simpleTextContent) { switchToMain(); }
         });
 
-        // 時間到時：自動切回主畫面並發送 Windows 系統桌面通知
         setInterval(() => {
             const now = new Date();
             const nowDateStr = now.toISOString().split('T')[0];
@@ -344,7 +335,6 @@
                     appContainer.style.opacity = "1.0";
                     alphaScale.value = "1.0";
 
-                    // 發送 Windows 系統通知
                     if ("Notification" in window && Notification.permission === "granted") {
                         new Notification("⏰ 待辦事項提醒", {
                             body: t.content,
