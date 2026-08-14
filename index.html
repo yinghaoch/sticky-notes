@@ -25,7 +25,7 @@
             <div class="text-center text-gray-400 text-xs mt-10">目前沒有待辦事項，請在上方新增！</div>
         </div>
 
-        <!-- 底部控制列（已移除簡易畫面與透明度） -->
+        <!-- 底部控制列 -->
         <div class="flex items-center justify-between pt-2 mt-2 border-t border-[#E8D58B]/60 text-xs text-gray-700">
             <button id="del-btn" class="px-3 py-1 bg-amber-100 hover:bg-amber-200 rounded border border-amber-300 transition">刪除選定</button>
         </div>
@@ -168,7 +168,7 @@
                 `;
 
                 itemDiv.addEventListener('click', () => { selectedIndex = idx; renderTasks(); });
-                itemDiv.addEventListener('dblclick', () => { t.checked = !t.checked; saveData(); renderTasks(); });
+                // 移除了雙擊直接切換完成狀態的邏輯
                 itemDiv.addEventListener('contextmenu', (e) => {
                     e.preventDefault();
                     selectedIndex = idx;
@@ -214,7 +214,6 @@
 
         window.addEventListener('click', () => { contextMenu.classList.add('hidden'); });
 
-        // 右鍵選單：狀態變更
         contextMenu.querySelectorAll('[data-status]').forEach(el => {
             el.addEventListener('click', (e) => {
                 const status = e.target.getAttribute('data-status');
@@ -226,7 +225,6 @@
             });
         });
 
-        // 右鍵選單：提醒設定
         contextMenu.querySelectorAll('[data-action]').forEach(el => {
             el.addEventListener('click', (e) => {
                 const action = e.target.getAttribute('data-action');
@@ -295,10 +293,32 @@
         function closeModal() { reminderModal.classList.add('hidden'); modalConfirm.onclick = null; }
         modalCancel.onclick = closeModal;
 
-        // 懸浮置頂 (子母畫面 PiP 模式)，畫布完整繪製狀態、內容與時間日期
+        // 懸浮置頂 (子母畫面 PiP 模式)：只投射「選定」的單一項目[cite: 3]，並依字數動態調整畫面大小
         floatBtn.addEventListener('click', async () => {
-            canvas.width = 320;
-            canvas.height = 440;
+            if (selectedIndex === null || selectedIndex >= tasks.length) {
+                alert("請先在清單中點選（選定）想要投影到子母畫面的項目！");
+                return;
+            }
+
+            const t = tasks[selectedIndex];
+            const padding = 15;
+            const titleHeight = 35;
+            const itemHeight = 28;
+            
+            const tempCtx = canvas.getContext('2d');
+            tempCtx.font = "12px sans-serif";
+            
+            const checkStr = t.checked ? '[✓] ' : '[   ] ';
+            const statusText = t.checked ? '[已完成]' : '[未完成]';
+            const reminderStr = getReminderString(t);
+            const fullStr = checkStr + statusText + " " + t.content + (reminderStr ? " " + reminderStr : "");
+            
+            const metrics = tempCtx.measureText(fullStr);
+            let contentWidth = metrics.width;
+            if (contentWidth < 180) contentWidth = 180;
+
+            canvas.width = Math.ceil(contentWidth + (padding * 2));
+            canvas.height = titleHeight + itemHeight + (padding * 2);
 
             function drawLoop() {
                 ctx.fillStyle = "#FDF6C7";
@@ -306,26 +326,23 @@
                 
                 ctx.fillStyle = "#451a03";
                 ctx.font = "bold 14px sans-serif";
-                ctx.fillText("📌 待辦事項便箋", 15, 30);
+                ctx.fillText("📌 待辦事項便箋", padding, 25);
                 
                 ctx.font = "12px sans-serif";
-                tasks.forEach((t, i) => {
-                    const checkStr = t.checked ? '[✓] ' : '[   ] ';
-                    const statusText = t.checked ? '[已完成]' : '[未完成]';
-                    const reminderStr = getReminderString(t);
-                    const y = 65 + (i * 30);
+                const y = 55;
+                let currentX = padding;
 
-                    // 繪製勾選與狀態
-                    ctx.fillStyle = "#451a03";
-                    ctx.fillText(checkStr, 15, y);
-                    
-                    ctx.fillStyle = t.checked ? "#16a34a" : "#dc2626"; // 綠色或紅色
-                    ctx.fillText(statusText, 48, y);
+                ctx.fillStyle = "#451a03";
+                ctx.fillText(checkStr, currentX, y);
+                currentX += tempCtx.measureText(checkStr).width;
 
-                    // 繪製內容與時間
-                    ctx.fillStyle = "#1f2937";
-                    ctx.fillText(t.content + (reminderStr ? " " + reminderStr : ""), 105, y);
-                });
+                ctx.fillStyle = t.checked ? "#16a34a" : "#dc2626";
+                ctx.fillText(statusText, currentX, y);
+                currentX += tempCtx.measureText(statusText + " ").width;
+
+                ctx.fillStyle = "#1f2937";
+                ctx.fillText(t.content + (reminderStr ? " " + reminderStr : ""), currentX, y);
+
                 requestAnimationFrame(drawLoop);
             }
             drawLoop();
