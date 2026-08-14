@@ -2,93 +2,76 @@
 <html lang="zh-Hant">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>便箋</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body { background-color: #f3f4f6; }
-        #app-container { transition: opacity 0.2s; }
     </style>
 </head>
-<body class="p-4">
-
-    <!-- 實際渲染的區域 -->
-    <div id="render-area" class="w-80 bg-[#FDF6C7] rounded-lg shadow-xl border border-[#E8D58B] p-4">
+<body class="p-2">
+    <!-- 主視窗容器 -->
+    <div id="app-container" class="w-80 bg-[#FDF6C7] rounded-lg shadow-xl border border-[#E8D58B] p-3">
         <div class="flex gap-2 mb-2">
-            <input type="text" id="content-input" placeholder="輸入待辦事項..." class="flex-1 px-2 py-1 text-sm border border-[#E8D58B] rounded bg-white/80 focus:outline-none">
+            <input type="text" id="content-input" placeholder="輸入待辦事項..." class="flex-1 px-2 py-1 text-sm border border-[#E8D58B] rounded bg-white/80">
             <button id="add-btn" class="px-3 py-1 bg-[#E8D58B] text-amber-900 text-sm font-medium rounded">新增</button>
         </div>
-
-        <div id="task-listbox" class="h-64 bg-white/50 border border-[#E8D58B]/50 rounded p-2 overflow-y-auto text-sm">
-            <!-- 事項列表 -->
+        <div id="task-listbox" class="h-64 bg-white/50 border border-[#E8D58B]/50 rounded p-2 overflow-y-auto text-sm"></div>
+        <div class="flex items-center justify-between pt-2 mt-2 border-t border-[#E8D58B]/60 text-xs">
+            <button id="del-btn" class="px-2 py-1 bg-amber-100 rounded border border-amber-300">刪除</button>
+            <button id="simple-btn" class="px-2 py-1 bg-amber-100 rounded border border-amber-300">簡易</button>
+            <input type="range" id="alpha-scale" min="0.3" max="1.0" step="0.1" value="0.9" class="w-16">
         </div>
-
-        <button id="float-btn" class="w-full mt-3 py-2 bg-blue-500 hover:bg-blue-600 text-white text-xs font-bold rounded shadow-lg">
-            📌 強制置頂 (子母畫面模式)
-        </button>
+        <!-- 置頂按鈕 -->
+        <button id="float-btn" class="w-full mt-2 py-1 bg-blue-500 text-white text-xs font-bold rounded">📌 懸浮置頂</button>
     </div>
 
-    <!-- 用於生成置頂畫面的隱藏元素 -->
-    <video id="video-stream" class="hidden" muted autoplay playsinline></video>
+    <!-- 隱藏的 Canvas 渲染器 -->
     <canvas id="canvas" class="hidden"></canvas>
+    <video id="video-stream" class="hidden" autoplay muted playsinline></video>
 
     <script>
-        let tasks = [];
-        const contentInput = document.getElementById('content-input');
-        const addBtn = document.getElementById('add-btn');
+        let tasks = JSON.parse(localStorage.getItem('tasks') || '[]');
         const taskListbox = document.getElementById('task-listbox');
-        const floatBtn = document.getElementById('float-btn');
-        const video = document.getElementById('video-stream');
-        const canvas = document.getElementById('canvas');
-        const ctx = canvas.getContext('2d');
-        const renderArea = document.getElementById('render-area');
-
-        // 渲染列表內容
-        function renderTasks() {
-            taskListbox.innerHTML = tasks.length === 0 ? '<div class="text-gray-400 text-center mt-10">無事項</div>' : '';
-            tasks.forEach((t, idx) => {
+        
+        function render() {
+            taskListbox.innerHTML = '';
+            tasks.forEach((t, i) => {
                 const div = document.createElement('div');
-                div.className = "p-1 border-b border-amber-200/50";
-                div.textContent = (t.checked ? '[✓] ' : '[ ] ') + t.text;
-                div.onclick = () => { t.checked = !t.checked; renderTasks(); };
+                div.className = "p-1 border-b border-amber-200 cursor-pointer";
+                div.textContent = (t.checked ? '✓ ' : '☐ ') + t.text + (t.remind ? ` (${t.remind})` : '');
+                div.onclick = () => { t.checked = !t.checked; save(); render(); };
+                div.oncontextmenu = (e) => { e.preventDefault(); if(confirm('刪除此項？')) { tasks.splice(i, 1); save(); render(); } };
                 taskListbox.appendChild(div);
             });
         }
+        function save() { localStorage.setItem('tasks', JSON.stringify(tasks)); }
 
-        addBtn.onclick = () => {
-            if (contentInput.value) {
-                tasks.push({ text: contentInput.value, checked: false });
-                contentInput.value = '';
-                renderTasks();
-            }
+        document.getElementById('add-btn').onclick = () => {
+            const val = document.getElementById('content-input').value;
+            if(val) { tasks.push({text: val, checked: false, remind: ''}); save(); render(); document.getElementById('content-input').value = ''; }
         };
 
-        // 強制置頂邏輯：將 DOM 轉為影片串流
-        floatBtn.onclick = async () => {
-            canvas.width = renderArea.offsetWidth;
-            canvas.height = renderArea.offsetHeight;
-
-            // 簡單將 HTML 轉繪到 Canvas
-            function updateCanvas() {
-                ctx.fillStyle = "#FDF6C7";
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
-                ctx.fillStyle = "#451a03";
-                ctx.font = "14px Arial";
-                tasks.forEach((t, i) => {
-                    ctx.fillText((t.checked ? '✓ ' : '☐ ') + t.text, 10, 30 + (i * 20));
-                });
-                requestAnimationFrame(updateCanvas);
-            }
-            updateCanvas();
-
-            const stream = canvas.captureStream();
-            video.srcObject = stream;
-            await video.play();
+        // 核心：子母畫面置頂技術
+        document.getElementById('float-btn').onclick = async () => {
+            const canvas = document.getElementById('canvas');
+            const video = document.getElementById('video-stream');
+            const ctx = canvas.getContext('2d');
             
-            if (video !== document.pictureInPictureElement) {
-                await video.requestPictureInPicture();
+            canvas.width = 320; canvas.height = 400;
+            function drawLoop() {
+                ctx.fillStyle = "#FDF6C7"; ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = "black"; ctx.font = "14px Arial";
+                tasks.forEach((t, i) => ctx.fillText((t.checked ? '✓ ' : '☐ ') + t.text, 10, 30 + (i * 20)));
+                requestAnimationFrame(drawLoop);
             }
+            drawLoop();
+            
+            video.srcObject = canvas.captureStream();
+            await video.play();
+            await video.requestPictureInPicture();
         };
+
+        render();
     </script>
 </body>
 </html>
