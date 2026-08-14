@@ -1,283 +1,756 @@
 <!DOCTYPE html>
-<html lang="zh-TW">
+
+<html lang="zh-Hant">
+
 <head>
+
     <meta charset="UTF-8">
+
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>便箋提醒工具</title>
+
+    <title>便箋</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+
     <style>
-        body {
-            font-family: system-ui, -apple-system, sans-serif;
-            background-color: #f4f6f9;
-            margin: 0;
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
-        .container {
-            width: 100%;
-            max-width: 600px;
-            background: #ffffff;
-            padding: 20px;
-            border-radius: 12px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-        }
-        h2 {
-            margin-top: 0;
-            color: #333;
-        }
-        .input-group {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 20px;
-            flex-wrap: wrap;
-        }
-        input[type="text"], input[type="datetime-local"] {
-            flex: 1;
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 6px;
-            font-size: 14px;
-        }
-        button {
-            padding: 10px 16px;
-            background-color: #007bff;
-            color: white;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 14px;
-            transition: background-color 0.2s;
-        }
-        button:hover {
-            background-color: #0056b3;
-        }
-        ul {
-            list-style: none;
-            padding: 0;
-            margin: 0;
-        }
-        li {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 10px 12px;
-            border-bottom: 1px solid #eee;
-            gap: 10px;
-        }
-        li:last-child {
-            border-bottom: none;
-        }
-        .task-info {
-            display: flex;
-            flex-direction: column;
-            flex: 1;
-        }
-        .task-content {
-            font-size: 15px;
-            color: #333;
-        }
-        .task-time {
-            font-size: 12px;
-            color: #777;
-            margin-top: 2px;
-        }
-        .task-checked .task-content {
-            text-decoration: line-through;
-            color: #aaa;
-        }
-        .actions {
-            display: flex;
-            gap: 6px;
-        }
-        .btn-delete {
-            background-color: #dc3545;
-        }
-        .btn-delete:hover {
-            background-color: #a71d2a;
-        }
-        .permission-banner {
-            background-color: #fff3cd;
-            color: #856404;
-            padding: 10px;
-            border-radius: 6px;
-            margin-bottom: 15px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            font-size: 14px;
-        }
+
+        body { background-color: transparent; }
+
     </style>
+
 </head>
-<body>
 
-<div class="container">
-    <h2>便箋提醒工具</h2>
-    
-    <div id="permissionBanner" class="permission-banner" style="display: none;">
-        <span>請允許瀏覽器通知權限，以便接收時間提醒。</span>
-        <button onclick="requestNotificationPermission()">啟用通知</button>
+<body class="overflow-hidden h-screen w-screen flex items-center justify-center m-0">
+
+
+
+    <!-- 主便箋視窗 -->
+
+    <div id="app-container" class="w-80 bg-[#FDF6C7] rounded-lg shadow-xl border border-[#E8D58B] flex flex-col p-3 relative transition-opacity duration-200" style="height: 450px; opacity: 0.9;">
+
+        
+
+        <!-- 頂部輸入區 -->
+
+        <div class="flex gap-2 mb-2">
+
+            <input type="text" id="content-input" placeholder="輸入待辦事項..." class="flex-1 px-2 py-1 text-sm border border-[#E8D58B] rounded bg-white/80 focus:outline-none focus:ring-1 focus:ring-amber-500">
+
+            <button id="add-btn" class="px-3 py-1 bg-[#E8D58B] hover:bg-[#d8c375] text-amber-900 text-sm font-medium rounded transition">新增代辦</button>
+
+        </div>
+
+
+
+        <!-- 事項清單區 -->
+
+        <div id="task-listbox" class="flex-1 bg-white/50 border border-[#E8D58B]/50 rounded p-2 overflow-y-auto flex flex-col gap-1">
+
+            <div class="text-center text-gray-400 text-xs mt-10">目前沒有待辦事項，請在上方新增！</div>
+
+        </div>
+
+
+
+        <!-- 底部控制列（已移除置頂） -->
+
+        <div class="flex items-center justify-between pt-2 mt-2 border-t border-[#E8D58B]/60 text-xs text-gray-700">
+
+            <button id="del-btn" class="px-2 py-1 bg-amber-100 hover:bg-amber-200 rounded border border-amber-300 transition">刪除選定</button>
+
+            <button id="simple-btn" class="px-2 py-1 bg-amber-100 hover:bg-amber-200 rounded border border-amber-300 transition">簡易畫面</button>
+
+            <div class="flex items-center gap-1">
+
+                <span>透明度</span>
+
+                <input type="range" id="alpha-scale" min="0.3" max="1.0" step="0.05" value="0.9" class="w-20 accent-amber-600 cursor-pointer">
+
+            </div>
+
+        </div>
+
     </div>
 
-    <div class="input-group">
-        <input type="text" id="taskInput" placeholder="輸入提醒事項...">
-        <input type="datetime-local" id="timeInput">
-        <button onclick="addTask()">新增</button>
+
+
+    <!-- 簡易畫面 -->
+
+    <div id="simple-container" class="hidden fixed w-72 bg-[#FDF6C7] rounded-lg shadow-xl border border-[#E8D58B] p-3 cursor-move select-none" style="opacity: 0.9;">
+
+        <div class="flex justify-between items-center mb-2 border-b border-[#E8D58B] pb-1">
+
+            <span class="text-xs font-bold text-amber-900">📌 執行中事項</span>
+
+            <button id="back-main-btn" class="text-xs px-2 py-0.5 bg-amber-200 hover:bg-amber-300 rounded">返回主畫面</button>
+
+        </div>
+
+        <div id="simple-text-content" class="text-sm text-gray-800 whitespace-pre-line max-h-60 overflow-y-auto"></div>
+
     </div>
 
-    <ul id="taskList"></ul>
-</div>
 
-<script>
-    let tasks = JSON.parse(localStorage.getItem('reminders')) || [];
 
-    // 初始化檢查通知權限
-    document.addEventListener("DOMContentLoaded", () => {
-        if (Notification.permission === "default") {
-            document.getElementById("permissionBanner").style.display = "flex";
-        }
-        renderTasks();
-        // 設為 10 秒檢查一次，確保精準度
-        setInterval(checkReminders, 10000);
-    });
+    <!-- 右鍵選單：設定提醒 -->
 
-    function requestNotificationPermission() {
-        Notification.requestPermission().then(permission => {
-            if (permission === "granted") {
-                document.getElementById("permissionBanner").style.display = "none";
-                new Notification("便箋提醒", { body: "通知權限已成功啟用！" });
-            }
-        });
-    }
+    <div id="custom-context-menu" class="hidden fixed bg-white border border-gray-300 shadow-md rounded py-1 z-50 text-xs w-36">
 
-    function addTask() {
-        const contentInput = document.getElementById("taskInput");
-        const timeInput = document.getElementById("timeInput");
+        <div class="px-3 py-1.5 hover:bg-amber-100 cursor-pointer font-bold text-amber-800">⏰ 設定提醒</div>
 
-        const content = contentInput.value.trim();
-        const time = timeInput.value;
+        <div class="border-t border-gray-200 my-1"></div>
 
-        if (!content || !time) {
-            alert("請填寫提醒內容與時間！");
-            return;
-        }
+        <div class="px-3 py-1.5 hover:bg-blue-50 cursor-pointer" data-action="once">單次提醒</div>
 
-        const newTask = {
-            id: Date.now(),
-            content: content,
-            time: time, // 格式會是 YYYY-MM-DDTHH:mm
-            checked: false,
-            notified: false
-        };
+        <div class="px-3 py-1.5 hover:bg-blue-50 cursor-pointer" data-action="weekday">平日提醒 (週一至週五)</div>
 
-        tasks.push(newTask);
-        saveData();
-        renderTasks();
+        <div class="px-3 py-1.5 hover:bg-blue-50 cursor-pointer" data-action="weekend">假日提醒 (週六、週日)</div>
 
-        contentInput.value = "";
-        timeInput.value = "";
-    }
+        <div class="px-3 py-1.5 hover:bg-blue-50 cursor-pointer" data-action="monthly">每月特定日期</div>
 
-    function toggleTask(id) {
-        tasks = tasks.map(task => {
-            if (task.id === id) {
-                return { ...task, checked: !task.checked };
-            }
-            return task;
-        });
-        saveData();
-        renderTasks();
-    }
+        <div class="border-t border-gray-200 my-1"></div>
 
-    function deleteTask(id) {
-        tasks = tasks.filter(task => task.id !== id);
-        saveData();
-        renderTasks();
-    }
+        <div class="px-3 py-1.5 hover:bg-red-50 text-red-600 cursor-pointer" data-action="none">取消提醒</div>
 
-    function saveData() {
-        localStorage.setItem('reminders', JSON.stringify(tasks));
-    }
+    </div>
 
-    function renderTasks() {
-        const listEl = document.getElementById("taskList");
-        listEl.innerHTML = "";
 
-        if (tasks.length === 0) {
-            listEl.innerHTML = `<li style="justify-content: center; color: #aaa; padding: 20px;">目前沒有任何提醒事項</li>`;
-            return;
-        }
 
-        // 依照時間排序
-        tasks.sort((a, b) => new Date(a.time) - new Date(b.time));
+    <!-- 設定提醒的彈出視窗 -->
 
-        tasks.forEach(task => {
-            const li = document.createElement("li");
-            if (task.checked) {
-                li.classList.add("task-checked");
-            }
+    <div id="reminder-modal" class="hidden fixed inset-0 bg-black/40 flex items-center justify-center z-50">
 
-            // 格式化顯示時間
-            const formattedTime = task.time.replace('T', ' ');
+        <div class="bg-white rounded-lg p-4 w-72 shadow-xl border border-gray-200 flex flex-col gap-3">
 
-            li.innerHTML = `
-                <input type="checkbox" ${task.checked ? "checked" : ""} onclick="toggleTask(${task.id})">
-                <div class="task-info">
-                    <span class="task-content">${escapeHtml(task.content)}</span>
-                    <span class="task-time">時間：${formattedTime}</span>
-                </div>
-                <div class="actions">
-                    <button class="btn-delete" onclick="deleteTask(${task.id})">刪除</button>
-                </div>
-            `;
-            listEl.appendChild(li);
-        });
-    }
+            <h3 id="modal-title" class="text-sm font-bold text-gray-800">設定提醒項目</h3>
 
-    function checkReminders() {
-        const now = new Date();
+            <div id="modal-body" class="flex flex-col gap-2"></div>
+
+            <div class="flex justify-end gap-2 mt-2">
+
+                <button id="modal-cancel" class="px-3 py-1 bg-gray-200 hover:bg-gray-300 text-gray-700 text-xs rounded">取消</button>
+
+                <button id="modal-confirm" class="px-3 py-1 bg-amber-500 hover:bg-amber-600 text-white text-xs rounded">確定</button>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+
+    <script>
+
+        let tasks = [];
+
+        let alphaVal = 0.9;
+
+        let selectedIndex = null;
+
+        let activeContextMenuTaskIndex = null;
+
+
+
+        const appContainer = document.getElementById('app-container');
+
+        const contentInput = document.getElementById('content-input');
+
+        const addBtn = document.getElementById('add-btn');
+
+        const taskListbox = document.getElementById('task-listbox');
+
+        const delBtn = document.getElementById('del-btn');
+
+        const simpleBtn = document.getElementById('simple-btn');
+
+        const alphaScale = document.getElementById('alpha-scale');
+
         
-        // 轉換成與 datetime-local 格式相容的字串比對 (YYYY-MM-DDTHH:mm)
-        const year = now.getFullYear();
-        const month = String(now.getMonth() + 1).padStart(2, '0');
-        const day = String(now.getDate()).padStart(2, '0');
-        const hours = String(now.getHours()).padStart(2, '0');
-        const minutes = String(now.getMinutes()).padStart(2, '0');
-        
-        const currentTimeStr = `${year}-${month}-${day}T${hours}:${minutes}`;
 
-        let updated = false;
+        const simpleContainer = document.getElementById('simple-container');
 
-        tasks.forEach(task => {
-            // 時間相符且尚未發送過通知
-            if (task.time === currentTimeStr && !task.notified) {
-                if (Notification.permission === "granted") {
-                    new Notification("⏰ 提醒時間到！", {
-                        body: task.content,
-                        icon: ""
-                    });
+        const simpleTextContent = document.getElementById('simple-text-content');
+
+        const backMainBtn = document.getElementById('back-main-btn');
+
+
+
+        const contextMenu = document.getElementById('custom-context-menu');
+
+        const reminderModal = document.getElementById('reminder-modal');
+
+        const modalTitle = document.getElementById('modal-title');
+
+        const modalBody = document.getElementById('modal-body');
+
+        const modalCancel = document.getElementById('modal-cancel');
+
+        const modalConfirm = document.getElementById('modal-confirm');
+
+
+
+        // 主動請求通知權限
+
+        if ("Notification" in window) {
+
+            if (Notification.permission !== "granted" && Notification.permission !== "denied") {
+
+                Notification.requestPermission();
+
+            }
+
+        }
+
+
+
+        function loadData() {
+
+            const saved = localStorage.getItem('sticky_notes_data');
+
+            if (saved) {
+
+                try {
+
+                    const data = JSON.parse(saved);
+
+                    tasks = data.tasks || [];
+
+                    alphaVal = data.alpha !== undefined ? data.alpha : 0.9;
+
+                } catch (e) {
+
+                    tasks = [];
+
                 }
-                task.notified = true;
-                updated = true;
-            } else if (task.time !== currentTimeStr && task.notified) {
-                // 當時間已經跨過這一分鐘，重置 notified 狀態（避免未來重複利用或格式問題）
-                // 註：若希望只響鈴一次可拿掉這行，但保留可確保若時間調整能重新觸發
-                task.notified = false;
-                updated = true;
+
             }
+
+            alphaScale.value = alphaVal;
+
+            appContainer.style.opacity = alphaVal;
+
+            simpleContainer.style.opacity = alphaVal;
+
+            renderTasks();
+
+        }
+
+
+
+        function saveData() {
+
+            const data = { tasks: tasks, alpha: alphaVal };
+
+            localStorage.setItem('sticky_notes_data', JSON.stringify(data));
+
+        }
+
+
+
+        function formatTimeInput(rawStr) {
+
+            let val = rawStr.trim();
+
+            if (!val.includes(":") && val.length === 4 && /^\d{4}$/.test(val)) {
+
+                val = val.substring(0, 2) + ":" + val.substring(2);
+
+            }
+
+            return val;
+
+        }
+
+
+
+        function renderTasks() {
+
+            taskListbox.innerHTML = "";
+
+            if (tasks.length === 0) {
+
+                taskListbox.innerHTML = `<div class="text-center text-gray-400 text-xs mt-10">目前沒有待辦事項，請在上方新增！</div>`;
+
+                return;
+
+            }
+
+
+
+            tasks.forEach((t, idx) => {
+
+                const itemDiv = document.createElement('div');
+
+                itemDiv.className = `flex items-center justify-between p-2 rounded cursor-pointer transition select-none text-sm ${selectedIndex === idx ? 'bg-[#E8D58B]/50 border border-[#E8D58B]' : 'hover:bg-amber-100/50 bg-white/60'}`;
+
+                
+
+                let tagStr = "";
+
+                const rType = t.reminder_type || "none";
+
+                if (rType === "once") tagStr = ` <span class="text-xs text-amber-700">(單次 ${t.date} ${t.time})</span>`;
+
+                else if (rType === "weekday") tagStr = ` <span class="text-xs text-blue-700">(平日 ${t.time})</span>`;
+
+                else if (rType === "weekend") tagStr = ` <span class="text-xs text-purple-700">(假日 ${t.time})</span>`;
+
+                else if (rType === "monthly") {
+
+                    const daysStr = (t.days_of_month || []).join(",");
+
+                    tagStr = ` <span class="text-xs text-green-700">(每月 ${daysStr}日 ${t.time})</span>`;
+
+                }
+
+
+
+                itemDiv.innerHTML = `
+
+                    <div class="flex items-center gap-2 overflow-hidden flex-1">
+
+                        <span class="font-mono font-bold">${t.checked ? '[✓]' : '[   ]'}</span>
+
+                        <span class="truncate ${t.checked ? 'line-through text-gray-400' : 'text-gray-800'}">${escapeHtml(t.content)}${tagStr}</span>
+
+                    </div>
+
+                `;
+
+
+
+                itemDiv.addEventListener('click', () => { selectedIndex = idx; renderTasks(); });
+
+                itemDiv.addEventListener('dblclick', () => { t.checked = !t.checked; saveData(); renderTasks(); });
+
+                itemDiv.addEventListener('contextmenu', (e) => {
+
+                    e.preventDefault();
+
+                    selectedIndex = idx;
+
+                    activeContextMenuTaskIndex = idx;
+
+                    renderTasks();
+
+                    contextMenu.style.left = `${e.pageX}px`;
+
+                    contextMenu.style.top = `${e.pageY}px`;
+
+                    contextMenu.classList.remove('hidden');
+
+                });
+
+
+
+                taskListbox.appendChild(itemDiv);
+
+            });
+
+        }
+
+
+
+        function escapeHtml(str) {
+
+            return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+        }
+
+
+
+        function addTask() {
+
+            const content = contentInput.value.trim();
+
+            if (!content) { alert("請輸入代辦事項內容！"); return; }
+
+
+
+            const now = new Date();
+
+            const timeStr = String(now.getHours()).padStart(2, '0') + ":" + String(now.getMinutes()).padStart(2, '0');
+
+            const dateStr = now.toISOString().split('T')[0];
+
+
+
+            tasks.push({ checked: false, content: content, reminder_type: "none", time: timeStr, date: dateStr, days_of_month: [], notified: false });
+
+            contentInput.value = "";
+
+            saveData();
+
+            renderTasks();
+
+        }
+
+
+
+        addBtn.addEventListener('click', addTask);
+
+        contentInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') addTask(); });
+
+
+
+        delBtn.addEventListener('click', () => {
+
+            if (selectedIndex === null || selectedIndex >= tasks.length) { alert("請先點選想要刪除的事項！"); return; }
+
+            tasks.splice(selectedIndex, 1);
+
+            selectedIndex = null;
+
+            saveData();
+
+            renderTasks();
+
         });
 
-        if (updated) {
-            saveData();
-        }
-    }
 
-    function escapeHtml(str) {
-        return str.replace(/[&<>'"]/g, 
-            tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag)
-        );
-    }
-</script>
+
+        window.addEventListener('click', () => { contextMenu.classList.add('hidden'); });
+
+
+
+        contextMenu.querySelectorAll('[data-action]').forEach(el => {
+
+            el.addEventListener('click', (e) => {
+
+                const action = e.target.getAttribute('data-action');
+
+                if (activeContextMenuTaskIndex !== null) { handleReminderConfig(activeContextMenuTaskIndex, action); }
+
+            });
+
+        });
+
+
+
+        function handleReminderConfig(idx, rType) {
+
+            const task = tasks[idx];
+
+            if (rType === 'none') {
+
+                task.reminder_type = "none";
+
+                task.notified = false;
+
+                saveData();
+
+                renderTasks();
+
+                return;
+
+            }
+
+
+
+            modalTitle.textContent = "設定提醒項目";
+
+            modalBody.innerHTML = "";
+
+            let htmlContent = "";
+
+
+
+            if (rType === 'once') {
+
+                htmlContent = `
+
+                    <div><label class="block text-xs text-gray-600 mb-1">選擇日期 (YYYY-MM-DD)</label><input type="date" id="remind-date" value="${task.date || new Date().toISOString().split('T')[0]}" class="w-full border rounded px-2 py-1 text-sm"></div>
+
+                    <div><label class="block text-xs text-gray-600 mb-1">提醒時間 (HH:MM 或 0900)</label><input type="text" id="remind-time" value="${task.time || '09:00'}" class="w-full border rounded px-2 py-1 text-sm"></div>
+
+                `;
+
+            } else if (rType === 'weekday' || rType === 'weekend') {
+
+                htmlContent = `<div><label class="block text-xs text-gray-600 mb-1">每日提醒時間 (HH:MM 或 0900)</label><input type="text" id="remind-time" value="${task.time || '09:00'}" class="w-full border rounded px-2 py-1 text-sm"></div>`;
+
+            } else if (rType === 'monthly') {
+
+                const defaultDays = (task.days_of_month || [1, 15]).join(",");
+
+                htmlContent = `
+
+                    <div><label class="block text-xs text-gray-600 mb-1">每月特定日期（逗號分隔，例如：1,15,25）</label><input type="text" id="remind-days" value="${defaultDays}" class="w-full border rounded px-2 py-1 text-sm"></div>
+
+                    <div><label class="block text-xs text-gray-600 mb-1">提醒時間 (HH:MM 或 0900)</label><input type="text" id="remind-time" value="${task.time || '09:00'}" class="w-full border rounded px-2 py-1 text-sm"></div>
+
+                `;
+
+            }
+
+
+
+            modalBody.innerHTML = htmlContent;
+
+            reminderModal.classList.remove('hidden');
+
+
+
+            modalConfirm.onclick = () => {
+
+                const timeRaw = document.getElementById('remind-time') ? document.getElementById('remind-time').value : "";
+
+                const timeAns = formatTimeInput(timeRaw);
+
+                
+
+                if (timeRaw && !/^\d{2}:\d{2}$/.test(timeAns)) {
+
+                    alert("時間格式不正確！請輸入正確的格式 (例如 09:00 或 0900)");
+
+                    return;
+
+                }
+
+
+
+                task.reminder_type = rType;
+
+                if (timeAns) task.time = timeAns;
+
+                task.notified = false;
+
+
+
+                if (rType === 'once') {
+
+                    task.date = document.getElementById('remind-date').value;
+
+                } else if (rType === 'monthly') {
+
+                    const daysStr = document.getElementById('remind-days').value;
+
+                    task.days_of_month = daysStr.split(',').map(d => parseInt(d.trim())).filter(d => !isNaN(d));
+
+                }
+
+
+
+                saveData();
+
+                renderTasks();
+
+                closeModal();
+
+            };
+
+        }
+
+
+
+        function closeModal() { reminderModal.classList.add('hidden'); modalConfirm.onclick = null; }
+
+        modalCancel.onclick = closeModal;
+
+
+
+        alphaScale.addEventListener('input', (e) => {
+
+            alphaVal = parseFloat(e.target.value);
+
+            appContainer.style.opacity = alphaVal;
+
+            simpleContainer.style.opacity = alphaVal;
+
+            saveData();
+
+        });
+
+
+
+        simpleBtn.addEventListener('click', () => {
+
+            const checkedTasks = tasks.filter(t => t.checked);
+
+            if (checkedTasks.length === 0) { alert("請先在清單項目上雙擊打勾 [✓] 要顯示在簡易畫面的事項！"); return; }
+
+
+
+            const lines = checkedTasks.map(t => {
+
+                let tagStr = "";
+
+                const rType = t.reminder_type || "none";
+
+                if (rType === "once") tagStr = ` (${t.date} ${t.time})`;
+
+                else if (rType === "weekday") tagStr = ` (平日 ${t.time})`;
+
+                else if (rType === "weekend") tagStr = ` (假日 ${t.time})`;
+
+                else if (rType === "monthly") tagStr = ` (每月 ${(t.days_of_month||[]).join(",")}日 ${t.time})`;
+
+                return `• ${t.content}${tagStr}`;
+
+            });
+
+
+
+            simpleTextContent.textContent = lines.join("\n");
+
+            appContainer.classList.add('hidden');
+
+            simpleContainer.classList.remove('hidden');
+
+            simpleContainer.style.top = `${window.innerHeight / 2 - 50}px`;
+
+            simpleContainer.style.left = `${window.innerWidth / 2 - 150}px`;
+
+        });
+
+
+
+        function switchToMain() {
+
+            simpleContainer.classList.add('hidden');
+
+            appContainer.classList.remove('hidden');
+
+        }
+
+
+
+        backMainBtn.addEventListener('click', switchToMain);
+
+        simpleContainer.addEventListener('dblclick', (e) => {
+
+            if (e.target === simpleContainer || e.target === simpleTextContent) { switchToMain(); }
+
+        });
+
+
+
+        let isDragging = false, startX, startY;
+
+        simpleContainer.addEventListener('mousedown', (e) => {
+
+            isDragging = true;
+
+            startX = e.clientX - simpleContainer.offsetLeft;
+
+            startY = e.clientY - simpleContainer.offsetTop;
+
+        });
+
+        window.addEventListener('mousemove', (e) => {
+
+            if (!isDragging) return;
+
+            simpleContainer.style.left = `${e.clientX - startX}px`;
+
+            simpleContainer.style.top = `${e.clientY - startY}px`;
+
+        });
+
+        window.addEventListener('mouseup', () => { isDragging = false; });
+
+
+
+        // 背景鬧鐘時間檢查與通知發送
+
+        setInterval(() => {
+
+            const now = new Date();
+
+            const nowDateStr = now.toISOString().split('T')[0];
+
+            const nowTimeStr = String(now.getHours()).padStart(2, '0') + ":" + String(now.getMinutes()).padStart(2, '0');
+
+            const currentDay = now.getDate();
+
+
+
+            tasks.forEach(t => {
+
+                const rType = t.reminder_type || "none";
+
+                if (rType === "none") return;
+
+
+
+                let trigger = false;
+
+                if (rType === "once" && !t.notified) {
+
+                    if (t.date === nowDateStr && t.time === nowTimeStr) { trigger = true; t.notified = true; }
+
+                } else if (rType === "weekday" && now.getDay() >= 1 && now.getDay() <= 5) {
+
+                    if (t.time === nowTimeStr) trigger = true;
+
+                } else if (rType === "weekend" && (now.getDay() === 0 || now.getDay() === 6)) {
+
+                    if (t.time === nowTimeStr) trigger = true;
+
+                } else if (rType === "monthly") {
+
+                    if ((t.days_of_month || []).includes(currentDay) && t.time === nowTimeStr) { trigger = true; }
+
+                }
+
+
+
+                if (trigger) {
+
+                    saveData();
+
+                    if ("Notification" in window) {
+
+                        if (Notification.permission === "granted") {
+
+                            new Notification("⏰ 時間到！提醒您：", {
+
+                                body: t.content,
+
+                                icon: "https://cdn-icons-png.flaticon.com/512/3239/3239952.png",
+
+                                silent: true
+
+                            });
+
+                        } else if (Notification.permission !== "denied") {
+
+                            Notification.requestPermission().then(permission => {
+
+                                if (permission === "granted") {
+
+                                    new Notification("⏰ 時間到！提醒您：", {
+
+                                        body: t.content,
+
+                                        icon: "https://cdn-icons-png.flaticon.com/512/3239/3239952.png",
+
+                                        silent: true
+
+                                    });
+
+                                }
+
+                            });
+
+                        }
+
+                    }
+
+                }
+
+            });
+
+        }, 10000);
+
+
+
+        loadData();
+
+    </script>
 
 </body>
-</html>
+
+</html> 
+
