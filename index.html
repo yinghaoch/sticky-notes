@@ -25,7 +25,7 @@
             <div class="text-center text-gray-400 text-xs mt-10">目前沒有待辦事項，請在上方新增！</div>
         </div>
 
-        <!-- 底部控制列 -->
+        <!-- 底部控制列（已移除簡易畫面與透明度） -->
         <div class="flex items-center justify-between pt-2 mt-2 border-t border-[#E8D58B]/60 text-xs text-gray-700">
             <button id="del-btn" class="px-3 py-1 bg-amber-100 hover:bg-amber-200 rounded border border-amber-300 transition">刪除選定</button>
         </div>
@@ -214,6 +214,7 @@
 
         window.addEventListener('click', () => { contextMenu.classList.add('hidden'); });
 
+        // 右鍵選單：狀態變更
         contextMenu.querySelectorAll('[data-status]').forEach(el => {
             el.addEventListener('click', (e) => {
                 const status = e.target.getAttribute('data-status');
@@ -225,6 +226,7 @@
             });
         });
 
+        // 右鍵選單：提醒設定
         contextMenu.querySelectorAll('[data-action]').forEach(el => {
             el.addEventListener('click', (e) => {
                 const action = e.target.getAttribute('data-action');
@@ -265,7 +267,7 @@
             reminderModal.classList.remove('hidden');
 
             modalConfirm.onclick = () => {
-                const timeRaw = document.getElementById('remind-time') ? document.getElementById('remind-time'].value : "";
+                const timeRaw = document.getElementById('remind-time') ? document.getElementById('remind-time').value : "";
                 const timeAns = formatTimeInput(timeRaw);
                 
                 if (timeRaw && !/^\d{2}:\d{2}$/.test(timeAns)) {
@@ -293,31 +295,10 @@
         function closeModal() { reminderModal.classList.add('hidden'); modalConfirm.onclick = null; }
         modalCancel.onclick = closeModal;
 
-        // 懸浮置頂 (子母畫面 PiP 模式)，依據內容動態計算最適高度與寬度
+        // 懸浮置頂 (子母畫面 PiP 模式)，畫布完整繪製狀態、內容與時間日期
         floatBtn.addEventListener('click', async () => {
-            // 動態計算子母畫面的寬高
-            const padding = 15;
-            const titleHeight = 35;
-            const itemHeight = 28;
-            
-            // 計算最大文字寬度以決定畫布寬度
-            const tempCtx = canvas.getContext('2d');
-            tempCtx.font = "12px sans-serif";
-            
-            let maxTextWidth = 200; // 預設最小寬度
-            tasks.forEach(t => {
-                const checkStr = t.checked ? '[✓] ' : '[   ] ';
-                const statusText = t.checked ? '[已完成]' : '[未完成]';
-                const reminderStr = getReminderString(t);
-                const fullStr = checkStr + statusText + " " + t.content + (reminderStr ? " " + reminderStr : "");
-                const metrics = tempCtx.measureText(fullStr);
-                if (metrics.width > maxTextWidth) {
-                    maxTextWidth = metrics.width;
-                }
-            });
-
-            canvas.width = Math.ceil(maxTextWidth + (padding * 2));
-            canvas.height = Math.max(80, titleHeight + (tasks.length * itemHeight) + (padding * 2));
+            canvas.width = 320;
+            canvas.height = 440;
 
             function drawLoop() {
                 ctx.fillStyle = "#FDF6C7";
@@ -325,30 +306,25 @@
                 
                 ctx.fillStyle = "#451a03";
                 ctx.font = "bold 14px sans-serif";
-                ctx.fillText("📌 待辦事項便箋", padding, 25);
+                ctx.fillText("📌 待辦事項便箋", 15, 30);
                 
                 ctx.font = "12px sans-serif";
                 tasks.forEach((t, i) => {
                     const checkStr = t.checked ? '[✓] ' : '[   ] ';
                     const statusText = t.checked ? '[已完成]' : '[未完成]';
                     const reminderStr = getReminderString(t);
-                    const y = 55 + (i * itemHeight);
+                    const y = 65 + (i * 30);
 
-                    let currentX = padding;
-
-                    // 繪製勾選方塊
+                    // 繪製勾選與狀態
                     ctx.fillStyle = "#451a03";
-                    ctx.fillText(checkStr, currentX, y);
-                    currentX += ctx.measureText(checkStr).width;
+                    ctx.fillText(checkStr, 15, y);
+                    
+                    ctx.fillStyle = t.checked ? "#16a34a" : "#dc2626"; // 綠色或紅色
+                    ctx.fillText(statusText, 48, y);
 
-                    // 繪製狀態 ([已完成] 綠色 / [未完成] 紅色)
-                    ctx.fillStyle = t.checked ? "#16a34a" : "#dc2626";
-                    ctx.fillText(statusText, currentX, y);
-                    currentX += ctx.measureText(statusText + " ").width;
-
-                    // 繪製內文與提醒日期時間
+                    // 繪製內容與時間
                     ctx.fillStyle = "#1f2937";
-                    ctx.fillText(t.content + (reminderStr ? " " + reminderStr : ""), currentX, y);
+                    ctx.fillText(t.content + (reminderStr ? " " + reminderStr : ""), 105, y);
                 });
                 requestAnimationFrame(drawLoop);
             }
