@@ -102,6 +102,11 @@
         const modalCancel = document.getElementById('modal-cancel');
         const modalConfirm = document.getElementById('modal-confirm');
 
+        // 初始化時自動請求 Windows 系統通知權限
+        if ("Notification" in window && Notification.permission !== "granted") {
+            Notification.requestPermission();
+        }
+
         function loadData() {
             const saved = localStorage.getItem('sticky_notes_data');
             if (saved) {
@@ -311,7 +316,7 @@
             if (e.target === simpleContainer || e.target === simpleTextContent) { switchToMain(); }
         });
 
-        // 時間到時：自動切回主畫面並跳出強迫確認視窗
+        // 時間到時：自動切回主畫面並發送 Windows 系統桌面通知
         setInterval(() => {
             const now = new Date();
             const nowDateStr = now.toISOString().split('T')[0];
@@ -325,7 +330,7 @@
                 let trigger = false;
                 if (rType === "once" && !t.notified) {
                     if (t.date === nowDateStr && t.time === nowTimeStr) { trigger = true; t.notified = true; }
-                } else if (rType === "weekday" && now.getDay() >= 1 && now.getDay() >= 1 && now.getDay() <= 5) {
+                } else if (rType === "weekday" && now.getDay() >= 1 && now.getDay() <= 5) {
                     if (t.time === nowTimeStr) trigger = true;
                 } else if (rType === "weekend" && (now.getDay() === 0 || now.getDay() === 6)) {
                     if (t.time === nowTimeStr) trigger = true;
@@ -338,7 +343,14 @@
                     switchToMain();
                     appContainer.style.opacity = "1.0";
                     alphaScale.value = "1.0";
-                    alert(`⏰ 時間到！\n\n提醒您：${t.content}`);
+
+                    // 發送 Windows 系統通知
+                    if ("Notification" in window && Notification.permission === "granted") {
+                        new Notification("⏰ 待辦事項提醒", {
+                            body: t.content,
+                            icon: "https://cdn-icons-png.flaticon.com/512/3209/3209265.png"
+                        });
+                    }
                 }
             });
         }, 10000);
